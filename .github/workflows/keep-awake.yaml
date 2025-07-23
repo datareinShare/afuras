@@ -1,0 +1,28 @@
+name: Keep Streamlit Awake
+
+# ① 手動実行も出来るよう workflow_dispatch を追加
+# ② UTC で 11 時間おき（0,11,22 時）に実行
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  '0 */11 * * *'
+
+jobs:
+  keep-awake:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) リポジトリをチェックアウト
+      - uses: actions/checkout@v4
+
+      # 2) Git ユーザーを設定（Bot 名義で OK）
+      - name: Set Git identity
+        run: |
+          git config user.name  github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
+      # 3) 空コミット → Push
+      - name: Keep awake
+        run: |
+          git commit --allow-empty -m "chore: keep awake $(date +'%F %T')"
+          git push
