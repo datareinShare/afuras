@@ -344,9 +344,6 @@ def main():
             
             st.session_state.station_coords = (lat, lng)
             st.session_state.current_station = station_name
-            
-            # 駅名をGASに送信
-            send_station_data_to_gas(station_name)
     
     lat, lng = st.session_state.station_coords
     st.success(f"✅ {station_name}駅の位置情報を取得しました")
@@ -373,6 +370,10 @@ def main():
     st.header("🔍 ステップ3: 検索実行")
     
     if st.button("🏫 学校・塾を検索する", type="primary", use_container_width=True):
+        # 駅名をGASに送信
+        with st.spinner("分析データを送信中..."):
+            send_station_data_to_gas(station_name)
+        
         with st.spinner("学校・塾を検索中..."):
             all_schools = finder.search_all_schools((lat, lng), radius_km)
             organized_results = finder.organize_results(all_schools)
