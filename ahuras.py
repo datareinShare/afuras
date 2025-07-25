@@ -4,6 +4,48 @@ from typing import Dict, List, Tuple, Set
 import re
 import googlemaps
 import pandas as pd
+import requests
+import json
+
+
+def send_station_data_to_gas(station_name: str) -> bool:
+    """
+    駅名をGoogle Apps ScriptのURLにPOSTリクエストで送信する
+    """
+    gas_url = "https://script.google.com/macros/s/AKfycbwbJ_0pFhjxUp5qvu5GLBSZEB1DZfPsrLYqBA4PA_zkxOf8pRN5YYOVCb2iKwTdJcRk2Q/exec"
+    
+    try:
+        # POSTリクエスト用のデータを準備
+        post_data = {
+            "station_name": station_name,
+            "timestamp": pd.Timestamp.now().isoformat(),
+            "source": "streamlit_app"
+        }
+        
+        # POSTリクエストを送信
+        response = requests.post(
+            gas_url,
+            data=json.dumps(post_data),
+            headers={'Content-Type': 'application/json'},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            st.success(f"✅ 駅名データを正常に送信しました: {station_name}")
+            return True
+        else:
+            st.warning(f"⚠️ データ送信でエラーが発生しました (ステータスコード: {response.status_code})")
+            return False
+            
+    except requests.exceptions.Timeout:
+        st.warning("⚠️ データ送信がタイムアウトしました")
+        return False
+    except requests.exceptions.RequestException as e:
+        st.warning(f"⚠️ データ送信でエラーが発生しました: {str(e)}")
+        return False
+    except Exception as e:
+        st.warning(f"⚠️ 予期しないエラーが発生しました: {str(e)}")
+        return False
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -302,6 +344,9 @@ def main():
             
             st.session_state.station_coords = (lat, lng)
             st.session_state.current_station = station_name
+            
+            # 駅名をGASに送信
+            send_station_data_to_gas(station_name)
     
     lat, lng = st.session_state.station_coords
     st.success(f"✅ {station_name}駅の位置情報を取得しました")
