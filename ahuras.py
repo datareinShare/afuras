@@ -41,18 +41,18 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                 }
             })
         
-        with st.expander("🔍 送信データ詳細", expanded=False):
-            st.json({
-                "送信先URL": gas_url,
-                "送信データ": post_data,
-                "データサイズ": len(json.dumps(post_data)),
-                "送信時刻": pd.Timestamp.now().isoformat()
-            })
+        # with st.expander("🔍 送信データ詳細", expanded=False):
+        #     st.json({
+        #         "送信先URL": gas_url,
+        #         "送信データ": post_data,
+        #         "データサイズ": len(json.dumps(post_data)),
+        #         "送信時刻": pd.Timestamp.now().isoformat()
+        #     })
         
         # POSTリクエストを送信 (方法1: json パラメータを使用)
         method_used = "不明"
         try:
-            st.info("📤 方法1で送信中: requests.post(json=data)")
+            # st.info("📤 方法1で送信中: requests.post(json=data)")
             response = requests.post(
                 gas_url,
                 json=post_data,  # jsonパラメータを使用（推奨）
@@ -60,8 +60,8 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
             )
             method_used = "方法1 (json=data)"
         except Exception as method1_error:
-            st.warning(f"⚠️ 方法1失敗: {method1_error}")
-            st.info("📤 方法2で送信中: requests.post(data=json.dumps(data))")
+            # st.warning(f"⚠️ 方法1失敗: {method1_error}")
+            # st.info("📤 方法2で送信中: requests.post(data=json.dumps(data))")
             # POSTリクエストを送信 (方法2: data + headers)
             response = requests.post(
                 gas_url,
@@ -72,15 +72,15 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
             method_used = "方法2 (data=json)"
         
         # レスポンス詳細を表示
-        with st.expander("📥 レスポンス詳細", expanded=True):
-            st.json({
-                "使用方法": method_used,
-                "ステータスコード": response.status_code,
-                "レスポンスヘッダー": dict(response.headers),
-                "レスポンス時刻": pd.Timestamp.now().isoformat(),
-                "レスポンスサイズ": len(response.text),
-                "レスポンス本文": response.text[:1000] + ("..." if len(response.text) > 1000 else "")
-            })
+        # with st.expander("📥 レスポンス詳細", expanded=True):
+        #     st.json({
+        #         "使用方法": method_used,
+        #         "ステータスコード": response.status_code,
+        #         "レスポンスヘッダー": dict(response.headers),
+        #         "レスポンス時刻": pd.Timestamp.now().isoformat(),
+        #         "レスポンスサイズ": len(response.text),
+        #         "レスポンス本文": response.text[:1000] + ("..." if len(response.text) > 1000 else "")
+        #     })
         
         if response.status_code == 200:
             try:
