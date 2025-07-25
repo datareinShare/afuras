@@ -30,7 +30,7 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
 class SchoolNameNormalizer:
     def __init__(self):
         """
-        学校名を正規化するためのパターンリストを定義
+        学校名・塾名を正規化するためのパターンリストを定義
         """
         self.removal_patterns = [
             r'市立',
@@ -52,12 +52,16 @@ class SchoolNameNormalizer:
             r'分室',
             r'校舎',
             r'第[一二三四五六七八九十]+',
+            r'株式会社',
+            r'有限会社',
+            r'教室',
+            r'スクール',
         ]
         self.compiled_patterns = [re.compile(pattern) for pattern in self.removal_patterns]
 
     def normalize(self, name: str) -> str:
         """
-        学校名を正規化して重複の識別を容易にする
+        学校名・塾名を正規化して重複の識別を容易にする
         """
         normalized = name
 
@@ -74,26 +78,36 @@ class SchoolNameNormalizer:
 class SchoolClassifier:
     def __init__(self):
         """
-        学校種別を判定するためのキーワードを定義
+        学校・塾種別を判定するためのキーワードを定義
         """
         self.school_types = {
             "小学校": ["小学校"],
             "中学校": ["中学校"],
             "高校": ["高校", "高等学校"],
-            "大学": ["大学", "大学院"]
+            "大学": ["大学", "大学院"],
+            "塾": ["塾", "予備校", "学習塾", "進学塾", "個別指導", "家庭教師", "補習塾", "受験塾"],
+            "eスポーツ塾": ["eスポーツ", "ゲーミング", "プロゲーマー", "eSports", "esports", "イースポーツ", "ゲーム教室"]
         }
 
     def classify_school(self, name: str, place_types: List[str]) -> str:
         """
-        学校名と場所タイプ情報から、学校種別（小・中・高・大学・その他）を判定する
+        学校名・塾名と場所タイプ情報から、種別を判定する
         """
+        # eスポーツ塾の判定（優先度高）
+        if any(kw in name for kw in self.school_types["eスポーツ塾"]):
+            return "eスポーツ塾"
+        
         # 大学の判定
         if "university" in place_types or any(kw in name for kw in self.school_types["大学"]):
             return "大学"
 
+        # 塾の判定
+        if any(kw in name for kw in self.school_types["塾"]):
+            return "塾"
+
         # 小・中・高の判定
-        for school_type, keywords in self.school_types.items():
-            if any(kw in name for kw in keywords):
+        for school_type in ["小学校", "中学校", "高校"]:
+            if any(kw in name for kw in self.school_types[school_type]):
                 return school_type
 
         return "その他"
@@ -107,8 +121,8 @@ class SchoolFinder:
         self.gmaps = googlemaps.Client(key=api_key)
         self.normalizer = SchoolNameNormalizer()
         self.classifier = SchoolClassifier()
-        # 検索除外キーワード例（塾・予備校など）
-        self.exclude_keywords = ["塾", "予備校", "サポート校", "学習塾"]
+        # 検索除外キーワード例（必要に応じて調整）
+        self.exclude_keywords = ["サポート校"]  # 塾関連は除外リストから削除
 
     def get_coordinates(self, station_name: str) -> Tuple[float, float]:
         """
@@ -128,12 +142,19 @@ class SchoolFinder:
     def search_all_schools(self, center_location: Tuple[float, float], radius_km: float) -> List[Dict]:
         """
         指定された中心座標 (lat, lng) と検索半径 (km) をもとに
-        Google Places API で学校を検索し、結果を返す。
+        Google Places API で学校・塾を検索し、結果を返す。
         """
         schools = {}
         # 半径(m)に1.5倍をかけた値でAPIに問い合わせる
         radius_meters = int(radius_km * 1000 * 1.5)
-        search_keywords = ["学校", "小学校", "中学校", "高校", "高等学校", "大学"]
+        search_keywords = [
+            # 学校関連
+            "学校", "小学校", "中学校", "高校", "高等学校", "大学",
+            # 塾関連
+            "塾", "予備校", "学習塾", "進学塾", "個別指導", "補習塾", "受験塾",
+            # eスポーツ塾関連
+            "eスポーツ", "ゲーミング塾", "プロゲーマー養成", "esports", "ゲーム教室"
+        ]
 
         progress_bar = st.progress(0)
         total_keywords = len(search_keywords)
@@ -160,12 +181,12 @@ class SchoolFinder:
                                                          school_lat, school_lng)
 
                         if distance_km <= radius_km:
-                            # 学校名を正規化
+                            # 学校・塾名を正規化
                             original_name = place['name']
                             normalized_name = self.normalizer.normalize(original_name)
 
                             if normalized_name:
-                                # 学校種別を判定
+                                # 学校・塾種別を判定
                                 school_type = self.classifier.classify_school(
                                     original_name,
                                     place.get('types', [])
@@ -193,13 +214,15 @@ class SchoolFinder:
 
     def organize_results(self, schools: List[Dict]) -> Dict[str, List[Dict]]:
         """
-        学校一覧を学校種別ごとにまとめて返す
+        学校・塾一覧を種別ごとにまとめて返す
         """
         organized = {
             "小学校": [],
             "中学校": [],
             "高校": [],
             "大学": [],
+            "塾": [],
+            "eスポーツ塾": [],
             "その他": []
         }
 
@@ -217,12 +240,13 @@ class SchoolFinder:
 
 def main():
     st.set_page_config(
-        page_title="学校検索アプリ",
+        page_title="学校・塾検索アプリ",
         page_icon="🏫",
         layout="wide"
     )
     
-    st.title("🏫 駅周辺学校検索アプリ")
+    st.title("🏫 駅周辺学校・塾検索アプリ")
+    st.markdown("学校、塾、eスポーツ塾を一括検索できます")
     st.markdown("---")
     
     # APIキーの取得（優先順位: secrets.toml > 環境変数 > 手動入力）
@@ -294,7 +318,7 @@ def main():
             max_value=5.0, 
             value=2.0, 
             step=0.1,
-            help="駅から何km圏内の学校を検索するかを設定してください"
+            help="駅から何km圏内の学校・塾を検索するかを設定してください"
         )
     
     with col2:
@@ -303,8 +327,8 @@ def main():
     # ステップ3: 検索実行
     st.header("🔍 ステップ3: 検索実行")
     
-    if st.button("🏫 学校を検索する", type="primary", use_container_width=True):
-        with st.spinner("学校を検索中..."):
+    if st.button("🏫 学校・塾を検索する", type="primary", use_container_width=True):
+        with st.spinner("学校・塾を検索中..."):
             all_schools = finder.search_all_schools((lat, lng), radius_km)
             organized_results = finder.organize_results(all_schools)
             
@@ -320,10 +344,10 @@ def main():
         total_schools = sum(len(schools) for schools in results.values())
         
         if total_schools == 0:
-            st.warning("該当する学校がありませんでした。検索半径を広げてみてください。")
+            st.warning("該当する学校・塾がありませんでした。検索半径を広げてみてください。")
         else:
             # 概要表示
-            col1, col2, col3, col4, col5 = st.columns(5)
+            col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
             with col1:
                 st.metric("小学校", len(results["小学校"]))
             with col2:
@@ -333,12 +357,16 @@ def main():
             with col4:
                 st.metric("大学", len(results["大学"]))
             with col5:
+                st.metric("塾", len(results["塾"]))
+            with col6:
+                st.metric("eスポーツ塾", len(results["eスポーツ塾"]))
+            with col7:
                 st.metric("その他", len(results["その他"]))
             
             st.markdown("---")
             
             # 詳細結果をタブで表示
-            tabs = st.tabs(["🏫 全体", "🎒 小学校", "📚 中学校", "🎓 高校", "🏛️ 大学", "📋 その他"])
+            tabs = st.tabs(["🏫 全体", "🎒 小学校", "📚 中学校", "🎓 高校", "🏛️ 大学", "📖 塾", "🎮 eスポーツ塾", "📋 その他"])
             
             # 全体タブ
             with tabs[0]:
@@ -346,7 +374,7 @@ def main():
                 for category, schools in results.items():
                     for school in schools:
                         all_schools_list.append({
-                            "学校名": school['original_name'],
+                            "名称": school['original_name'],
                             "種別": school['type'],
                             "距離 (km)": f"{school['distance']:.1f}"
                         })
@@ -356,7 +384,7 @@ def main():
                     st.dataframe(df, use_container_width=True)
             
             # 各カテゴリタブ
-            categories = ["小学校", "中学校", "高校", "大学", "その他"]
+            categories = ["小学校", "中学校", "高校", "大学", "塾", "eスポーツ塾", "その他"]
             for i, category in enumerate(categories):
                 with tabs[i + 1]:
                     schools = results[category]
@@ -364,7 +392,7 @@ def main():
                         school_data = []
                         for school in schools:
                             school_data.append({
-                                "学校名": school['original_name'],
+                                "名称": school['original_name'],
                                 "距離 (km)": f"{school['distance']:.1f}"
                             })
                         
