@@ -91,15 +91,15 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                     st.success(f"✅ 分析データを正常に送信し、スプレッドシートに保存されました: {station_name}")
                     
                     # 詳細結果表示
-                    with st.expander("📊 送信結果詳細", expanded=True):
-                        if response_json.get("spreadsheet_result"):
-                            spreadsheet_result = response_json["spreadsheet_result"]
-                            if spreadsheet_result.get("added"):
-                                st.success(f"✅ スプレッドシートに新しいデータを追加しました（行 {spreadsheet_result.get('row')}）")
-                            elif spreadsheet_result.get("skipped"):
-                                st.info("ℹ️ データは既に存在するため、追加をスキップしました")
-                            elif not spreadsheet_result.get("success"):
-                                st.error(f"❌ スプレッドシート更新エラー: {spreadsheet_result.get('error', '不明なエラー')}")
+                    # with st.expander("📊 送信結果詳細", expanded=True):
+                    #     if response_json.get("spreadsheet_result"):
+                    #         spreadsheet_result = response_json["spreadsheet_result"]
+                    #         if spreadsheet_result.get("added"):
+                    #             st.success(f"✅ スプレッドシートに新しいデータを追加しました（行 {spreadsheet_result.get('row')}）")
+                    #         elif spreadsheet_result.get("skipped"):
+                    #             st.info("ℹ️ データは既に存在するため、追加をスキップしました")
+                    #         elif not spreadsheet_result.get("success"):
+                    #             st.error(f"❌ スプレッドシート更新エラー: {spreadsheet_result.get('error', '不明なエラー')}")
                         
                         if response_json.get("analysis_data"):
                             analysis_data = response_json["analysis_data"]
