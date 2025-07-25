@@ -22,29 +22,109 @@ def send_station_data_to_gas(station_name: str) -> bool:
             "source": "streamlit_app"
         }
         
-        # POSTリクエストを送信
-        response = requests.post(
-            gas_url,
-            data=json.dumps(post_data),
-            headers={'Content-Type': 'application/json'},
-            timeout=10
-        )
+        with st.expander("🔍 デバッグ情報", expanded=False):
+            st.json({
+                "送信先URL": gas_url,
+                "送信データ": post_data,
+                "データサイズ": len(json.dumps(post_data)),
+                "送信時刻": pd.Timestamp.now().isoformat()
+            })
+        
+        # POSTリクエストを送信 (方法1: json パラメータを使用)
+        method_used = "不明"
+        try:
+            st.info("📤 方法1で送信中: requests.post(json=data)")
+            response = requests.post(
+                gas_url,
+                json=post_data,  # jsonパラメータを使用（推奨）
+                timeout=30  # タイムアウトを30秒に延長
+            )
+            method_used = "方法1 (json=data)"
+        except Exception as method1_error:
+            st.warning(f"⚠️ 方法1失敗: {method1_error}")
+            st.info("📤 方法2で送信中: requests.post(data=json.dumps(data))")
+            # POSTリクエストを送信 (方法2: data + headers)
+            response = requests.post(
+                gas_url,
+                data=json.dumps(post_data),
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            method_used = "方法2 (data=json)"
+        
+        # レスポンス詳細を表示
+        with st.expander("📥 レスポンス詳細", expanded=True):
+            st.json({
+                "使用方法": method_used,
+                "ステータスコード": response.status_code,
+                "レスポンスヘッダー": dict(response.headers),
+                "レスポンス時刻": pd.Timestamp.now().isoformat(),
+                "レスポンスサイズ": len(response.text),
+                "レスポンス本文": response.text[:1000] + ("..." if len(response.text) > 1000 else "")
+            })
         
         if response.status_code == 200:
-            st.success(f"✅ 駅名データを正常に送信しました: {station_name}")
-            return True
+            try:
+                response_json = response.json()
+                
+                # 成功時の処理
+                if response_json.get("success"):
+                    st.success(f"✅ 駅名データを正常に送信し、分析が完了しました: {station_name}")
+                    
+                    # 詳細結果表示
+                    with st.expander("📊 分析結果詳細", expanded=True):
+                        if response_json.get("document_url"):
+                            st.markdown(f"📄 **分析ドキュメント**: [Google Doc]({response_json['document_url']})")
+                        
+                        if response_json.get("spreadsheet_result"):
+                            st.json(response_json["spreadsheet_result"])
+                        
+                        if response_json.get("analysis_data"):
+                            analysis_data = response_json["analysis_data"]
+                            st.markdown("**📈 分析データ:**")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("乗降者数", f"{int(analysis_data.get('joukousha', 0)):,}人")
+                                st.metric("小学校", f"{int(analysis_data.get('shougakkou', 0))}校")
+                            with col2:
+                                st.metric("見込み顧客数", f"{int(analysis_data.get('mikumori', 0)):,}人")
+                                st.metric("中学校", f"{int(analysis_data.get('chuugakkou', 0))}校")
+                            with col3:
+                                st.metric("平均世帯年収", f"{int(analysis_data.get('heikin_nenshu', 0))}万円")
+                                st.metric("高校", f"{int(analysis_data.get('koukou', 0))}校")
+                    
+                    return True
+                else:
+                    # エラー時の詳細表示
+                    st.error(f"❌ GAS側でエラーが発生しました")
+                    
+                    with st.expander("❌ エラー詳細", expanded=True):
+                        st.json(response_json)
+                    
+                    return False
+                    
+            except json.JSONDecodeError as json_error:
+                st.error(f"❌ レスポンスのJSON解析に失敗しました")
+                with st.expander("❌ JSON解析エラー詳細", expanded=True):
+                    st.code(f"JSONエラー: {json_error}")
+                    st.code(f"生レスポンス: {response.text}")
+                return False
         else:
-            st.warning(f"⚠️ データ送信でエラーが発生しました (ステータスコード: {response.status_code})")
+            st.error(f"❌ HTTP エラーが発生しました (ステータス: {response.status_code})")
             return False
             
     except requests.exceptions.Timeout:
-        st.warning("⚠️ データ送信がタイムアウトしました")
+        st.error("❌ リクエストがタイムアウトしました（30秒）")
         return False
-    except requests.exceptions.RequestException as e:
-        st.warning(f"⚠️ データ送信でエラーが発生しました: {str(e)}")
+    except requests.exceptions.ConnectionError as conn_error:
+        st.error(f"❌ 接続エラーが発生しました: {conn_error}")
+        return False
+    except requests.exceptions.RequestException as req_error:
+        st.error(f"❌ リクエストエラーが発生しました: {req_error}")
         return False
     except Exception as e:
-        st.warning(f"⚠️ 予期しないエラーが発生しました: {str(e)}")
+        st.error(f"❌ 予期しないエラーが発生しました: {str(e)}")
+        st.code(f"エラータイプ: {type(e).__name__}")
         return False
 
 
