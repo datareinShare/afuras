@@ -41,131 +41,131 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                 }
             })
         
-    #     with st.expander("🔍 送信データ詳細", expanded=False):
-    #         st.json({
-    #             "送信先URL": gas_url,
-    #             "送信データ": post_data,
-    #             "データサイズ": len(json.dumps(post_data)),
-    #             "送信時刻": pd.Timestamp.now().isoformat()
-    #         })
+        with st.expander("🔍 送信データ詳細", expanded=False):
+            st.json({
+                "送信先URL": gas_url,
+                "送信データ": post_data,
+                "データサイズ": len(json.dumps(post_data)),
+                "送信時刻": pd.Timestamp.now().isoformat()
+            })
         
-    #     # POSTリクエストを送信 (方法1: json パラメータを使用)
-    #     method_used = "不明"
-    #     try:
-    #         st.info("📤 方法1で送信中: requests.post(json=data)")
-    #         response = requests.post(
-    #             gas_url,
-    #             json=post_data,  # jsonパラメータを使用（推奨）
-    #             timeout=30  # タイムアウトを30秒に延長
-    #         )
-    #         method_used = "方法1 (json=data)"
-    #     except Exception as method1_error:
-    #         st.warning(f"⚠️ 方法1失敗: {method1_error}")
-    #         st.info("📤 方法2で送信中: requests.post(data=json.dumps(data))")
-    #         # POSTリクエストを送信 (方法2: data + headers)
-    #         response = requests.post(
-    #             gas_url,
-    #             data=json.dumps(post_data),
-    #             headers={'Content-Type': 'application/json'},
-    #             timeout=30
-    #         )
-    #         method_used = "方法2 (data=json)"
+        # POSTリクエストを送信 (方法1: json パラメータを使用)
+        method_used = "不明"
+        try:
+            st.info("📤 方法1で送信中: requests.post(json=data)")
+            response = requests.post(
+                gas_url,
+                json=post_data,  # jsonパラメータを使用（推奨）
+                timeout=30  # タイムアウトを30秒に延長
+            )
+            method_used = "方法1 (json=data)"
+        except Exception as method1_error:
+            st.warning(f"⚠️ 方法1失敗: {method1_error}")
+            st.info("📤 方法2で送信中: requests.post(data=json.dumps(data))")
+            # POSTリクエストを送信 (方法2: data + headers)
+            response = requests.post(
+                gas_url,
+                data=json.dumps(post_data),
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            method_used = "方法2 (data=json)"
         
-    #     # レスポンス詳細を表示
-    #     with st.expander("📥 レスポンス詳細", expanded=True):
-    #         st.json({
-    #             "使用方法": method_used,
-    #             "ステータスコード": response.status_code,
-    #             "レスポンスヘッダー": dict(response.headers),
-    #             "レスポンス時刻": pd.Timestamp.now().isoformat(),
-    #             "レスポンスサイズ": len(response.text),
-    #             "レスポンス本文": response.text[:1000] + ("..." if len(response.text) > 1000 else "")
-    #         })
+        # レスポンス詳細を表示
+        with st.expander("📥 レスポンス詳細", expanded=True):
+            st.json({
+                "使用方法": method_used,
+                "ステータスコード": response.status_code,
+                "レスポンスヘッダー": dict(response.headers),
+                "レスポンス時刻": pd.Timestamp.now().isoformat(),
+                "レスポンスサイズ": len(response.text),
+                "レスポンス本文": response.text[:1000] + ("..." if len(response.text) > 1000 else "")
+            })
         
-    #     if response.status_code == 200:
-    #         try:
-    #             response_json = response.json()
+        if response.status_code == 200:
+            try:
+                response_json = response.json()
                 
-    #             # 成功時の処理
-    #             if response_json.get("success"):
-    #                 st.success(f"✅ 分析データを正常に送信し、スプレッドシートに保存されました: {station_name}")
+                # 成功時の処理
+                if response_json.get("success"):
+                    st.success(f"✅ 分析データを正常に送信し、スプレッドシートに保存されました: {station_name}")
                     
-    #                 # 詳細結果表示
-    #                 with st.expander("📊 送信結果詳細", expanded=True):
-    #                     if response_json.get("spreadsheet_result"):
-    #                         spreadsheet_result = response_json["spreadsheet_result"]
-    #                         if spreadsheet_result.get("added"):
-    #                             st.success(f"✅ スプレッドシートに新しいデータを追加しました（行 {spreadsheet_result.get('row')}）")
-    #                         elif spreadsheet_result.get("skipped"):
-    #                             st.info("ℹ️ データは既に存在するため、追加をスキップしました")
-    #                         elif not spreadsheet_result.get("success"):
-    #                             st.error(f"❌ スプレッドシート更新エラー: {spreadsheet_result.get('error', '不明なエラー')}")
+                    # 詳細結果表示
+                    with st.expander("📊 送信結果詳細", expanded=True):
+                        if response_json.get("spreadsheet_result"):
+                            spreadsheet_result = response_json["spreadsheet_result"]
+                            if spreadsheet_result.get("added"):
+                                st.success(f"✅ スプレッドシートに新しいデータを追加しました（行 {spreadsheet_result.get('row')}）")
+                            elif spreadsheet_result.get("skipped"):
+                                st.info("ℹ️ データは既に存在するため、追加をスキップしました")
+                            elif not spreadsheet_result.get("success"):
+                                st.error(f"❌ スプレッドシート更新エラー: {spreadsheet_result.get('error', '不明なエラー')}")
                         
-    #                     if response_json.get("analysis_data"):
-    #                         analysis_data = response_json["analysis_data"]
-    #                         st.markdown("**📈 スプレッドシート保存データ:**")
-    #                         col1, col2, col3 = st.columns(3)
-    #                         with col1:
-    #                             st.metric("塾", f"{int(analysis_data.get('juku', 0))}件")
-    #                             st.metric("小学校", f"{int(analysis_data.get('shougakkou', 0))}校")
-    #                         with col2:
-    #                             st.metric("eスポーツスクール", f"{int(analysis_data.get('esport_school', 0))}校")
-    #                             st.metric("中学校", f"{int(analysis_data.get('chuugakkou', 0))}校")
-    #                         with col3:
-    #                             st.metric("高校", f"{int(analysis_data.get('koukou', 0))}校")
-    #                             st.metric("大学", f"{int(analysis_data.get('daigaku', 0))}校")
+                        if response_json.get("analysis_data"):
+                            analysis_data = response_json["analysis_data"]
+                            st.markdown("**📈 スプレッドシート保存データ:**")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("塾", f"{int(analysis_data.get('juku', 0))}件")
+                                st.metric("小学校", f"{int(analysis_data.get('shougakkou', 0))}校")
+                            with col2:
+                                st.metric("eスポーツスクール", f"{int(analysis_data.get('esport_school', 0))}校")
+                                st.metric("中学校", f"{int(analysis_data.get('chuugakkou', 0))}校")
+                            with col3:
+                                st.metric("高校", f"{int(analysis_data.get('koukou', 0))}校")
+                                st.metric("大学", f"{int(analysis_data.get('daigaku', 0))}校")
                             
-    #                         # 統計情報も表示
-    #                         if analysis_data.get('total_count', 0) > 0:
-    #                             st.markdown("**📊 検索統計:**")
-    #                             col1, col2 = st.columns(2)
-    #                             with col1:
-    #                                 st.metric("総検索件数", f"{int(analysis_data.get('total_count', 0))}件")
-    #                             with col2:
-    #                                 st.metric("検索半径", f"{analysis_data.get('search_radius', 0):.1f}km")
+                            # 統計情報も表示
+                            if analysis_data.get('total_count', 0) > 0:
+                                st.markdown("**📊 検索統計:**")
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.metric("総検索件数", f"{int(analysis_data.get('total_count', 0))}件")
+                                with col2:
+                                    st.metric("検索半径", f"{analysis_data.get('search_radius', 0):.1f}km")
                     
-    #                 return True
-    #             else:
-    #                 # エラー時の詳細表示
-    #                 error_type = response_json.get("error_type", "unknown")
+                    return True
+                else:
+                    # エラー時の詳細表示
+                    error_type = response_json.get("error_type", "unknown")
                     
-    #                 if error_type == "station_not_found":
-    #                     st.warning(f"⚠️ 駅データが見つかりません: {station_name}")
-    #                     with st.expander("💡 解決方法", expanded=True):
-    #                         st.markdown("**以下をお試しください:**")
-    #                         for suggestion in response_json.get("suggestions", []):
-    #                             st.markdown(f"• {suggestion}")
-    #                 else:
-    #                     st.error(f"❌ GAS側でエラーが発生しました: {response_json.get('message', '不明なエラー')}")
+                    if error_type == "station_not_found":
+                        st.warning(f"⚠️ 駅データが見つかりません: {station_name}")
+                        with st.expander("💡 解決方法", expanded=True):
+                            st.markdown("**以下をお試しください:**")
+                            for suggestion in response_json.get("suggestions", []):
+                                st.markdown(f"• {suggestion}")
+                    else:
+                        st.error(f"❌ GAS側でエラーが発生しました: {response_json.get('message', '不明なエラー')}")
                     
-    #                 with st.expander("❌ エラー詳細", expanded=False):
-    #                     st.json(response_json)
+                    with st.expander("❌ エラー詳細", expanded=False):
+                        st.json(response_json)
                     
-    #                 return False
+                    return False
                     
-    #         except json.JSONDecodeError as json_error:
-    #             st.error(f"❌ レスポンスのJSON解析に失敗しました")
-    #             with st.expander("❌ JSON解析エラー詳細", expanded=True):
-    #                 st.code(f"JSONエラー: {json_error}")
-    #                 st.code(f"生レスポンス: {response.text}")
-    #             return False
-    #     else:
-    #         st.error(f"❌ HTTP エラーが発生しました (ステータス: {response.status_code})")
-    #         return False
+            except json.JSONDecodeError as json_error:
+                st.error(f"❌ レスポンスのJSON解析に失敗しました")
+                with st.expander("❌ JSON解析エラー詳細", expanded=True):
+                    st.code(f"JSONエラー: {json_error}")
+                    st.code(f"生レスポンス: {response.text}")
+                return False
+        else:
+            st.error(f"❌ HTTP エラーが発生しました (ステータス: {response.status_code})")
+            return False
             
-    # except requests.exceptions.Timeout:
-    #     st.error("❌ リクエストがタイムアウトしました（30秒）")
-    #     return False
-    # except requests.exceptions.ConnectionError as conn_error:
-    #     st.error(f"❌ 接続エラーが発生しました: {conn_error}")
-    #     return False
-    # except requests.exceptions.RequestException as req_error:
-    #     st.error(f"❌ リクエストエラーが発生しました: {req_error}")
-    #     return False
-    # except Exception as e:
-    #     st.error(f"❌ 予期しないエラーが発生しました: {str(e)}")
-    #     st.code(f"エラータイプ: {type(e).__name__}")
-    #     return False
+    except requests.exceptions.Timeout:
+        st.error("❌ リクエストがタイムアウトしました（30秒）")
+        return False
+    except requests.exceptions.ConnectionError as conn_error:
+        st.error(f"❌ 接続エラーが発生しました: {conn_error}")
+        return False
+    except requests.exceptions.RequestException as req_error:
+        st.error(f"❌ リクエストエラーが発生しました: {req_error}")
+        return False
+    except Exception as e:
+        st.error(f"❌ 予期しないエラーが発生しました: {str(e)}")
+        st.code(f"エラータイプ: {type(e).__name__}")
+        return False
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
