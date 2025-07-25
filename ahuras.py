@@ -8,9 +8,9 @@ import requests
 import json
 
 
-def send_station_data_to_gas(station_name: str) -> bool:
+def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) -> bool:
     """
-    駅名をGoogle Apps ScriptのURLにPOSTリクエストで送信する
+    駅名と分析結果をGoogle Apps ScriptのURLにPOSTリクエストで送信する
     """
     gas_url = "https://script.google.com/macros/s/AKfycbwbJ_0pFhjxUp5qvu5GLBSZEB1DZfPsrLYqBA4PA_zkxOf8pRN5YYOVCb2iKwTdJcRk2Q/exec"
     
@@ -22,7 +22,26 @@ def send_station_data_to_gas(station_name: str) -> bool:
             "source": "streamlit_app"
         }
         
-        with st.expander("🔍 デバッグ情報", expanded=False):
+        # 分析結果がある場合は追加
+        if analysis_results:
+            post_data.update({
+                "analysis_results": {
+                    # スプレッドシート列構成に対応したキー名を使用
+                    "塾の数": analysis_results.get("塾の数", 0),                    # D列
+                    "eスポーツスクールの数": analysis_results.get("eスポーツスクールの数", 0), # E列
+                    "小学校の数": analysis_results.get("小学校の数", 0),              # F列
+                    "中学校の数": analysis_results.get("中学校の数", 0),              # G列
+                    "高校の数": analysis_results.get("高校の数", 0),                # H列
+                    "大学の数": analysis_results.get("大学の数", 0),                # I列
+                    # 統計・メタデータ
+                    "その他の数": analysis_results.get("その他の数", 0),
+                    "総検索件数": analysis_results.get("総検索件数", 0),
+                    "検索半径_km": analysis_results.get("検索半径_km", 0),
+                    "分析日時": analysis_results.get("分析日時", pd.Timestamp.now().isoformat())
+                }
+            })
+        
+        with st.expander("🔍 送信データ詳細", expanded=False):
             st.json({
                 "送信先URL": gas_url,
                 "送信データ": post_data,
@@ -69,36 +88,57 @@ def send_station_data_to_gas(station_name: str) -> bool:
                 
                 # 成功時の処理
                 if response_json.get("success"):
-                    st.success(f"✅ 駅名データを正常に送信し、分析が完了しました: {station_name}")
+                    st.success(f"✅ 分析データを正常に送信し、スプレッドシートに保存されました: {station_name}")
                     
                     # 詳細結果表示
-                    with st.expander("📊 分析結果詳細", expanded=True):
-                        if response_json.get("document_url"):
-                            st.markdown(f"📄 **分析ドキュメント**: [Google Doc]({response_json['document_url']})")
-                        
+                    with st.expander("📊 送信結果詳細", expanded=True):
                         if response_json.get("spreadsheet_result"):
-                            st.json(response_json["spreadsheet_result"])
+                            spreadsheet_result = response_json["spreadsheet_result"]
+                            if spreadsheet_result.get("added"):
+                                st.success(f"✅ スプレッドシートに新しいデータを追加しました（行 {spreadsheet_result.get('row')}）")
+                            elif spreadsheet_result.get("skipped"):
+                                st.info("ℹ️ データは既に存在するため、追加をスキップしました")
+                            elif not spreadsheet_result.get("success"):
+                                st.error(f"❌ スプレッドシート更新エラー: {spreadsheet_result.get('error', '不明なエラー')}")
                         
                         if response_json.get("analysis_data"):
                             analysis_data = response_json["analysis_data"]
-                            st.markdown("**📈 分析データ:**")
+                            st.markdown("**📈 スプレッドシート保存データ:**")
                             col1, col2, col3 = st.columns(3)
                             with col1:
-                                st.metric("乗降者数", f"{int(analysis_data.get('joukousha', 0)):,}人")
+                                st.metric("塾", f"{int(analysis_data.get('juku', 0))}件")
                                 st.metric("小学校", f"{int(analysis_data.get('shougakkou', 0))}校")
                             with col2:
-                                st.metric("見込み顧客数", f"{int(analysis_data.get('mikumori', 0)):,}人")
+                                st.metric("eスポーツスクール", f"{int(analysis_data.get('esport_school', 0))}校")
                                 st.metric("中学校", f"{int(analysis_data.get('chuugakkou', 0))}校")
                             with col3:
-                                st.metric("平均世帯年収", f"{int(analysis_data.get('heikin_nenshu', 0))}万円")
                                 st.metric("高校", f"{int(analysis_data.get('koukou', 0))}校")
+                                st.metric("大学", f"{int(analysis_data.get('daigaku', 0))}校")
+                            
+                            # 統計情報も表示
+                            if analysis_data.get('total_count', 0) > 0:
+                                st.markdown("**📊 検索統計:**")
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.metric("総検索件数", f"{int(analysis_data.get('total_count', 0))}件")
+                                with col2:
+                                    st.metric("検索半径", f"{analysis_data.get('search_radius', 0):.1f}km")
                     
                     return True
                 else:
                     # エラー時の詳細表示
-                    st.error(f"❌ GAS側でエラーが発生しました")
+                    error_type = response_json.get("error_type", "unknown")
                     
-                    with st.expander("❌ エラー詳細", expanded=True):
+                    if error_type == "station_not_found":
+                        st.warning(f"⚠️ 駅データが見つかりません: {station_name}")
+                        with st.expander("💡 解決方法", expanded=True):
+                            st.markdown("**以下をお試しください:**")
+                            for suggestion in response_json.get("suggestions", []):
+                                st.markdown(f"• {suggestion}")
+                    else:
+                        st.error(f"❌ GAS側でエラーが発生しました: {response_json.get('message', '不明なエラー')}")
+                    
+                    with st.expander("❌ エラー詳細", expanded=False):
                         st.json(response_json)
                     
                     return False
@@ -450,10 +490,6 @@ def main():
     st.header("🔍 ステップ3: 検索実行")
     
     if st.button("🏫 学校・塾を検索する", type="primary", use_container_width=True):
-        # 駅名をGASに送信
-        with st.spinner("分析データを送信中..."):
-            send_station_data_to_gas(station_name)
-        
         with st.spinner("学校・塾を検索中..."):
             all_schools = finder.search_all_schools((lat, lng), radius_km)
             organized_results = finder.organize_results(all_schools)
@@ -461,6 +497,30 @@ def main():
             st.session_state.search_results = organized_results
             st.session_state.search_station = station_name
             st.session_state.search_radius = radius_km
+        
+        # 分析結果を準備してGASに送信
+        if organized_results:
+            total_schools = sum(len(schools) for schools in organized_results.values())
+            
+            # スプレッドシートの列構成に対応した分析結果を作成
+            # A:駅名, B:乗降者数, C:平均世帯年収, D:塾の数, E:esportスクールの数, 
+            # F:小学校の数, G:中学校の数, H:高校の数, I:大学の数, J:世帯数, K:人口, L:esports専門学校の数
+            analysis_summary = {
+                "塾の数": len(organized_results["塾"]),                    # D列対応
+                "eスポーツスクールの数": len(organized_results["eスポーツ塾"]),  # E列対応  
+                "小学校の数": len(organized_results["小学校"]),              # F列対応
+                "中学校の数": len(organized_results["中学校"]),              # G列対応
+                "高校の数": len(organized_results["高校"]),                # H列対応
+                "大学の数": len(organized_results["大学"]),                # I列対応
+                "その他の数": len(organized_results["その他"]),              # 参考情報
+                "総検索件数": total_schools,                              # 統計情報
+                "検索半径_km": radius_km,                                # 検索条件
+                "分析日時": pd.Timestamp.now().isoformat()               # メタデータ
+            }
+            
+            # 分析データをGASに送信
+            with st.spinner("分析データをスプレッドシートに保存中..."):
+                send_analysis_data_to_gas(station_name, analysis_summary)
     
     # 結果表示
     if 'search_results' in st.session_state:
