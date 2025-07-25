@@ -101,28 +101,28 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                     #         elif not spreadsheet_result.get("success"):
                     #             st.error(f"❌ スプレッドシート更新エラー: {spreadsheet_result.get('error', '不明なエラー')}")
                         
-                        if response_json.get("analysis_data"):
-                            analysis_data = response_json["analysis_data"]
-                            st.markdown("**📈 スプレッドシート保存データ:**")
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("塾", f"{int(analysis_data.get('juku', 0))}件")
-                                st.metric("小学校", f"{int(analysis_data.get('shougakkou', 0))}校")
-                            with col2:
-                                st.metric("eスポーツスクール", f"{int(analysis_data.get('esport_school', 0))}校")
-                                st.metric("中学校", f"{int(analysis_data.get('chuugakkou', 0))}校")
-                            with col3:
-                                st.metric("高校", f"{int(analysis_data.get('koukou', 0))}校")
-                                st.metric("大学", f"{int(analysis_data.get('daigaku', 0))}校")
+                    #     if response_json.get("analysis_data"):
+                    #         analysis_data = response_json["analysis_data"]
+                    #         st.markdown("**📈 スプレッドシート保存データ:**")
+                    #         col1, col2, col3 = st.columns(3)
+                    #         with col1:
+                    #             st.metric("塾", f"{int(analysis_data.get('juku', 0))}件")
+                    #             st.metric("小学校", f"{int(analysis_data.get('shougakkou', 0))}校")
+                    #         with col2:
+                    #             st.metric("eスポーツスクール", f"{int(analysis_data.get('esport_school', 0))}校")
+                    #             st.metric("中学校", f"{int(analysis_data.get('chuugakkou', 0))}校")
+                    #         with col3:
+                    #             st.metric("高校", f"{int(analysis_data.get('koukou', 0))}校")
+                    #             st.metric("大学", f"{int(analysis_data.get('daigaku', 0))}校")
                             
-                            # 統計情報も表示
-                            if analysis_data.get('total_count', 0) > 0:
-                                st.markdown("**📊 検索統計:**")
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.metric("総検索件数", f"{int(analysis_data.get('total_count', 0))}件")
-                                with col2:
-                                    st.metric("検索半径", f"{analysis_data.get('search_radius', 0):.1f}km")
+                    #         # 統計情報も表示
+                    #         if analysis_data.get('total_count', 0) > 0:
+                    #             st.markdown("**📊 検索統計:**")
+                    #             col1, col2 = st.columns(2)
+                    #             with col1:
+                    #                 st.metric("総検索件数", f"{int(analysis_data.get('total_count', 0))}件")
+                    #             with col2:
+                    #                 st.metric("検索半径", f"{analysis_data.get('search_radius', 0):.1f}km")
                     
                     return True
                 else:
