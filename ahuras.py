@@ -34,6 +34,8 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                     "高校の数": analysis_results.get("高校の数", 0),                # H列
                     "大学の数": analysis_results.get("大学の数", 0),                # I列
                     # 統計・メタデータ
+                    "専門学校の数": analysis_results.get("専門学校の数", 0),
+                    "幼稚園・保育園の数": analysis_results.get("幼稚園・保育園の数", 0),
                     "その他の数": analysis_results.get("その他の数", 0),
                     "総検索件数": analysis_results.get("総検索件数", 0),
                     "検索半径_km": analysis_results.get("検索半径_km", 0),
@@ -41,18 +43,9 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                 }
             })
         
-        # with st.expander("🔍 送信データ詳細", expanded=False):
-        #     st.json({
-        #         "送信先URL": gas_url,
-        #         "送信データ": post_data,
-        #         "データサイズ": len(json.dumps(post_data)),
-        #         "送信時刻": pd.Timestamp.now().isoformat()
-        #     })
-        
         # POSTリクエストを送信 (方法1: json パラメータを使用)
         method_used = "不明"
         try:
-            # st.info("📤 方法1で送信中: requests.post(json=data)")
             response = requests.post(
                 gas_url,
                 json=post_data,  # jsonパラメータを使用（推奨）
@@ -60,8 +53,6 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
             )
             method_used = "方法1 (json=data)"
         except Exception as method1_error:
-            # st.warning(f"⚠️ 方法1失敗: {method1_error}")
-            # st.info("📤 方法2で送信中: requests.post(data=json.dumps(data))")
             # POSTリクエストを送信 (方法2: data + headers)
             response = requests.post(
                 gas_url,
@@ -71,17 +62,6 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
             )
             method_used = "方法2 (data=json)"
         
-        # レスポンス詳細を表示
-        # with st.expander("📥 レスポンス詳細", expanded=True):
-        #     st.json({
-        #         "使用方法": method_used,
-        #         "ステータスコード": response.status_code,
-        #         "レスポンスヘッダー": dict(response.headers),
-        #         "レスポンス時刻": pd.Timestamp.now().isoformat(),
-        #         "レスポンスサイズ": len(response.text),
-        #         "レスポンス本文": response.text[:1000] + ("..." if len(response.text) > 1000 else "")
-        #     })
-        
         if response.status_code == 200:
             try:
                 response_json = response.json()
@@ -89,41 +69,6 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                 # 成功時の処理
                 if response_json.get("success"):
                     st.success(f"✅ 分析データを正常に送信し、スプレッドシートに保存されました: {station_name}")
-                    
-                    # 詳細結果表示
-                    # with st.expander("📊 送信結果詳細", expanded=True):
-                    #     if response_json.get("spreadsheet_result"):
-                    #         spreadsheet_result = response_json["spreadsheet_result"]
-                    #         if spreadsheet_result.get("added"):
-                    #             st.success(f"✅ スプレッドシートに新しいデータを追加しました（行 {spreadsheet_result.get('row')}）")
-                    #         elif spreadsheet_result.get("skipped"):
-                    #             st.info("ℹ️ データは既に存在するため、追加をスキップしました")
-                    #         elif not spreadsheet_result.get("success"):
-                    #             st.error(f"❌ スプレッドシート更新エラー: {spreadsheet_result.get('error', '不明なエラー')}")
-                        
-                    #     if response_json.get("analysis_data"):
-                    #         analysis_data = response_json["analysis_data"]
-                    #         st.markdown("**📈 スプレッドシート保存データ:**")
-                    #         col1, col2, col3 = st.columns(3)
-                    #         with col1:
-                    #             st.metric("塾", f"{int(analysis_data.get('juku', 0))}件")
-                    #             st.metric("小学校", f"{int(analysis_data.get('shougakkou', 0))}校")
-                    #         with col2:
-                    #             st.metric("eスポーツスクール", f"{int(analysis_data.get('esport_school', 0))}校")
-                    #             st.metric("中学校", f"{int(analysis_data.get('chuugakkou', 0))}校")
-                    #         with col3:
-                    #             st.metric("高校", f"{int(analysis_data.get('koukou', 0))}校")
-                    #             st.metric("大学", f"{int(analysis_data.get('daigaku', 0))}校")
-                            
-                    #         # 統計情報も表示
-                    #         if analysis_data.get('total_count', 0) > 0:
-                    #             st.markdown("**📊 検索統計:**")
-                    #             col1, col2 = st.columns(2)
-                    #             with col1:
-                    #                 st.metric("総検索件数", f"{int(analysis_data.get('total_count', 0))}件")
-                    #             with col2:
-                    #                 st.metric("検索半径", f"{analysis_data.get('search_radius', 0):.1f}km")
-                    
                     return True
                 else:
                     # エラー時の詳細表示
@@ -243,21 +188,86 @@ class SchoolClassifier:
         学校・塾種別を判定するためのキーワードを定義
         """
         self.school_types = {
-            "小学校": ["小学校"],
-            "中学校": ["中学校"],
-            "高校": ["高校", "高等学校"],
-            "大学": ["大学", "大学院"],
-            "塾": ["塾", "予備校", "学習塾", "進学塾", "個別指導", "家庭教師", "補習塾", "受験塾"],
-            "eスポーツ塾": ["eスポーツ", "ゲーミング", "プロゲーマー", "eSports", "esports", "イースポーツ", "ゲーム教室"]
+            "小学校": ["小学校", "小學校"],
+            "中学校": ["中学校", "中學校"],
+            "高校": ["高校", "高等学校", "高校"],
+            "大学": ["大学", "大学院", "短期大学", "短大"],
+            "塾": ["塾", "予備校", "学習塾", "進学塾", "個別指導", "家庭教師", "補習塾", "受験塾", "学習教室"],
+            "eスポーツ塾": ["eスポーツ", "ゲーミング", "プロゲーマー", "eSports", "esports", "イースポーツ", "ゲーム教室"],
+            "専門学校": ["専門学校", "専門学院", "職業訓練校", "技術学校", "専修学校"],
+            "幼稚園・保育園": ["幼稚園", "保育園", "保育所", "こども園", "認定こども園"]
         }
+        
+        # 教育関連のGoogle Places APIタイプ
+        self.education_place_types = {
+            'school', 'university', 'primary_school', 'secondary_school', 
+            'establishment', 'point_of_interest'
+        }
+        
+        # 明確に除外すべきキーワード（教育関連でないもの）
+        self.exclude_keywords = [
+            # 商業施設
+            'スーパー', 'コンビニ', 'デパート', '百貨店', 'ショッピング', '商店',
+            'マーケット', 'ストア', '販売', '小売', 'イオン', 'セブン', 'ローソン',
+            
+            # 飲食店
+            'レストラン', '食堂', 'カフェ', '喫茶', '居酒屋', 'バー', 'ファミレス',
+            
+            # 医療・福祉
+            '病院', 'クリニック', '医院', '歯科', '薬局', 'ドラッグ', '介護',
+            
+            # その他サービス
+            '銀行', '郵便', 'ATM', 'ガソリン', '美容', '理容', 'ホテル', '旅館',
+            
+            # 公共施設（教育関連でないもの）
+            '市役所', '区役所', '警察', '消防', '図書館', '公民館', '体育館',
+            
+            # 企業・オフィス
+            '株式会社', '有限会社', '合同会社', '事務所', 'オフィス', '本社', '支社'
+        ]
+
+    def is_education_related(self, name: str, place_types: List[str]) -> bool:
+        """
+        教育関連施設かどうかを判定
+        """
+        # 除外キーワードが含まれている場合は教育関連でないと判定
+        name_lower = name.lower()
+        for exclude_kw in self.exclude_keywords:
+            if exclude_kw in name:
+                return False
+        
+        # 教育関連のplace_typesをチェック
+        if any(edu_type in place_types for edu_type in self.education_place_types):
+            # さらに名前に教育関連キーワードが含まれているかチェック
+            education_keywords = [
+                '学校', '塾', '教室', '学院', '学園', '大学', '高校', '中学', '小学',
+                '幼稚園', '保育園', '専門', '予備校', '学習', '教育', '進学',
+                'スクール', 'アカデミー', 'ゼミ', '講座'
+            ]
+            
+            return any(kw in name for kw in education_keywords)
+        
+        return False
 
     def classify_school(self, name: str, place_types: List[str]) -> str:
         """
         学校名・塾名と場所タイプ情報から、種別を判定する
         """
+        # まず教育関連施設かどうかをチェック
+        if not self.is_education_related(name, place_types):
+            return None  # 教育関連でない場合はNoneを返す
+        
         # eスポーツ塾の判定（優先度高）
         if any(kw in name for kw in self.school_types["eスポーツ塾"]):
             return "eスポーツ塾"
+        
+        # 幼稚園・保育園の判定
+        if any(kw in name for kw in self.school_types["幼稚園・保育園"]):
+            return "幼稚園・保育園"
+        
+        # 専門学校の判定
+        if any(kw in name for kw in self.school_types["専門学校"]):
+            return "専門学校"
         
         # 大学の判定
         if "university" in place_types or any(kw in name for kw in self.school_types["大学"]):
@@ -283,8 +293,12 @@ class SchoolFinder:
         self.gmaps = googlemaps.Client(key=api_key)
         self.normalizer = SchoolNameNormalizer()
         self.classifier = SchoolClassifier()
-        # 検索除外キーワード例（必要に応じて調整）
-        self.exclude_keywords = ["サポート校"]  # 塾関連は除外リストから削除
+        # より具体的な検索除外キーワード
+        self.exclude_keywords = [
+            "サポート校", "職員室", "事務室", "保健室", 
+            "スーパー", "コンビニ", "レストラン", "病院", 
+            "銀行", "郵便局", "ガソリンスタンド"
+        ]
 
     def get_coordinates(self, station_name: str) -> Tuple[float, float]:
         """
@@ -309,13 +323,20 @@ class SchoolFinder:
         schools = {}
         # 半径(m)に1.5倍をかけた値でAPIに問い合わせる
         radius_meters = int(radius_km * 1000 * 1.5)
+        
+        # より具体的な検索キーワード
         search_keywords = [
-            # 学校関連
-            "学校", "小学校", "中学校", "高校", "高等学校", "大学",
-            # 塾関連
-            "塾", "予備校", "学習塾", "進学塾", "個別指導", "補習塾", "受験塾",
-            # eスポーツ塾関連
-            "eスポーツ", "ゲーミング塾", "プロゲーマー養成", "esports", "ゲーム教室"
+            # 学校関連（より具体的に）
+            "小学校", "中学校", "高等学校", "高校", "大学", "専門学校",
+            "幼稚園", "保育園", "こども園",
+            
+            # 塾関連（より具体的に）
+            "学習塾", "進学塾", "予備校", "個別指導塾", "補習塾", "受験塾",
+            "英語塾", "数学塾", "国語塾",
+            
+            # eスポーツ関連
+            "eスポーツスクール", "ゲーミングスクール", "プロゲーマー養成",
+            "esportsアカデミー", "ゲーム教室"
         ]
 
         progress_bar = st.progress(0)
@@ -353,6 +374,10 @@ class SchoolFinder:
                                     original_name,
                                     place.get('types', [])
                                 )
+                                
+                                # 教育関連でない場合はスキップ
+                                if school_type is None:
+                                    continue
 
                                 # 重複チェック: 学校名+学校種別が同じ場合、より近いもののみ保持
                                 key = f"{normalized_name}_{school_type}"
@@ -383,6 +408,8 @@ class SchoolFinder:
             "中学校": [],
             "高校": [],
             "大学": [],
+            "専門学校": [],
+            "幼稚園・保育園": [],
             "塾": [],
             "eスポーツ塾": [],
             "その他": []
@@ -503,19 +530,19 @@ def main():
             total_schools = sum(len(schools) for schools in organized_results.values())
             
             # スプレッドシートの列構成に対応した分析結果を作成
-            # A:駅名, B:乗降者数, C:平均世帯年収, D:塾の数, E:esportスクールの数, 
-            # F:小学校の数, G:中学校の数, H:高校の数, I:大学の数, J:世帯数, K:人口, L:esports専門学校の数
             analysis_summary = {
-                "塾の数": len(organized_results["塾"]),                    # D列対応
-                "eスポーツスクールの数": len(organized_results["eスポーツ塾"]),  # E列対応  
-                "小学校の数": len(organized_results["小学校"]),              # F列対応
-                "中学校の数": len(organized_results["中学校"]),              # G列対応
-                "高校の数": len(organized_results["高校"]),                # H列対応
-                "大学の数": len(organized_results["大学"]),                # I列対応
-                "その他の数": len(organized_results["その他"]),              # 参考情報
-                "総検索件数": total_schools,                              # 統計情報
-                "検索半径_km": radius_km,                                # 検索条件
-                "分析日時": pd.Timestamp.now().isoformat()               # メタデータ
+                "塾の数": len(organized_results["塾"]),                        # D列対応
+                "eスポーツスクールの数": len(organized_results["eスポーツ塾"]),      # E列対応  
+                "小学校の数": len(organized_results["小学校"]),                  # F列対応
+                "中学校の数": len(organized_results["中学校"]),                  # G列対応
+                "高校の数": len(organized_results["高校"]),                    # H列対応
+                "大学の数": len(organized_results["大学"]),                    # I列対応
+                "専門学校の数": len(organized_results["専門学校"]),              # 追加項目
+                "幼稚園・保育園の数": len(organized_results["幼稚園・保育園"]),      # 追加項目
+                "その他の数": len(organized_results["その他"]),                  # 参考情報
+                "総検索件数": total_schools,                                  # 統計情報
+                "検索半径_km": radius_km,                                    # 検索条件
+                "分析日時": pd.Timestamp.now().isoformat()                   # メタデータ
             }
             
             # 分析データをGASに送信
@@ -533,26 +560,33 @@ def main():
             st.warning("該当する学校・塾がありませんでした。検索半径を広げてみてください。")
         else:
             # 概要表示
-            col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
-            with col1:
+            cols = st.columns(9)
+            with cols[0]:
                 st.metric("小学校", len(results["小学校"]))
-            with col2:
+            with cols[1]:
                 st.metric("中学校", len(results["中学校"]))
-            with col3:
+            with cols[2]:
                 st.metric("高校", len(results["高校"]))
-            with col4:
+            with cols[3]:
                 st.metric("大学", len(results["大学"]))
-            with col5:
+            with cols[4]:
+                st.metric("専門学校", len(results["専門学校"]))
+            with cols[5]:
+                st.metric("幼稚園・保育園", len(results["幼稚園・保育園"]))
+            with cols[6]:
                 st.metric("塾", len(results["塾"]))
-            with col6:
+            with cols[7]:
                 st.metric("eスポーツ塾", len(results["eスポーツ塾"]))
-            with col7:
+            with cols[8]:
                 st.metric("その他", len(results["その他"]))
             
             st.markdown("---")
             
             # 詳細結果をタブで表示
-            tabs = st.tabs(["🏫 全体", "🎒 小学校", "📚 中学校", "🎓 高校", "🏛️ 大学", "📖 塾", "🎮 eスポーツ塾", "📋 その他"])
+            tabs = st.tabs([
+                "🏫 全体", "🎒 小学校", "📚 中学校", "🎓 高校", "🏛️ 大学", 
+                "🔬 専門学校", "👶 幼稚園・保育園", "📖 塾", "🎮 eスポーツ塾", "📋 その他"
+            ])
             
             # 全体タブ
             with tabs[0]:
@@ -570,7 +604,7 @@ def main():
                     st.dataframe(df, use_container_width=True)
             
             # 各カテゴリタブ
-            categories = ["小学校", "中学校", "高校", "大学", "塾", "eスポーツ塾", "その他"]
+            categories = ["小学校", "中学校", "高校", "大学", "専門学校", "幼稚園・保育園", "塾", "eスポーツ塾", "その他"]
             for i, category in enumerate(categories):
                 with tabs[i + 1]:
                     schools = results[category]
