@@ -103,7 +103,7 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None, 
             return False
             
     except Exception as e:
-        st.error(f"❌ 予期しないエラーが発生しました: {str(e)}")
+        #st.error(f"❌ 予期しないエラーが発生しました: {str(e)}")
         return False
 
 
