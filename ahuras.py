@@ -8,7 +8,7 @@ import requests
 import json
 
 
-def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) -> bool:
+def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None, school_details: Dict = None) -> bool:
     """
     駅名と分析結果をGoogle Apps ScriptのURLにPOSTリクエストで送信する
     """
@@ -43,17 +43,22 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
                 }
             })
         
-        # POSTリクエストを送信 (方法1: json パラメータを使用)
+        # ★新規追加: 学校詳細リストがある場合は追加
+        if school_details:
+            post_data.update({
+                "school_details": school_details
+            })
+        
+        # POSTリクエスト送信処理（既存と同じ）
         method_used = "不明"
         try:
             response = requests.post(
                 gas_url,
-                json=post_data,  # jsonパラメータを使用（推奨）
-                timeout=30  # タイムアウトを30秒に延長
+                json=post_data,
+                timeout=30
             )
             method_used = "方法1 (json=data)"
         except Exception as method1_error:
-            # POSTリクエストを送信 (方法2: data + headers)
             response = requests.post(
                 gas_url,
                 data=json.dumps(post_data),
@@ -62,16 +67,15 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
             )
             method_used = "方法2 (data=json)"
         
+        # レスポンス処理（既存と同じ）
         if response.status_code == 200:
             try:
                 response_json = response.json()
                 
-                # 成功時の処理
                 if response_json.get("success"):
                     st.success(f"✅ 分析データを正常に送信し、スプレッドシートに保存されました: {station_name}")
                     return True
                 else:
-                    # エラー時の詳細表示
                     error_type = response_json.get("error_type", "unknown")
                     
                     if error_type == "station_not_found":
@@ -98,18 +102,8 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None) 
             st.error(f"❌ HTTP エラーが発生しました (ステータス: {response.status_code})")
             return False
             
-    except requests.exceptions.Timeout:
-        st.error("❌ リクエストがタイムアウトしました（30秒）")
-        return False
-    except requests.exceptions.ConnectionError as conn_error:
-        st.error(f"❌ 接続エラーが発生しました: {conn_error}")
-        return False
-    except requests.exceptions.RequestException as req_error:
-        st.error(f"❌ リクエストエラーが発生しました: {req_error}")
-        return False
     except Exception as e:
         st.error(f"❌ 予期しないエラーが発生しました: {str(e)}")
-        st.code(f"エラータイプ: {type(e).__name__}")
         return False
 
 
@@ -531,23 +525,35 @@ def main():
             
             # スプレッドシートの列構成に対応した分析結果を作成
             analysis_summary = {
-                "塾の数": len(organized_results["塾"]),                        # D列対応
-                "eスポーツスクールの数": len(organized_results["eスポーツ塾"]),      # E列対応  
-                "小学校の数": len(organized_results["小学校"]),                  # F列対応
-                "中学校の数": len(organized_results["中学校"]),                  # G列対応
-                "高校の数": len(organized_results["高校"]),                    # H列対応
-                "大学の数": len(organized_results["大学"]),                    # I列対応
-                "専門学校の数": len(organized_results["専門学校"]),              # 追加項目
-                "幼稚園・保育園の数": len(organized_results["幼稚園・保育園"]),      # 追加項目
-                "その他の数": len(organized_results["その他"]),                  # 参考情報
-                "総検索件数": total_schools,                                  # 統計情報
-                "検索半径_km": radius_km,                                    # 検索条件
-                "分析日時": pd.Timestamp.now().isoformat()                   # メタデータ
+                "塾の数": len(organized_results["塾"]),
+                "eスポーツスクールの数": len(organized_results["eスポーツ塾"]),
+                "小学校の数": len(organized_results["小学校"]),
+                "中学校の数": len(organized_results["中学校"]),
+                "高校の数": len(organized_results["高校"]),
+                "大学の数": len(organized_results["大学"]),
+                "専門学校の数": len(organized_results["専門学校"]),
+                "幼稚園・保育園の数": len(organized_results["幼稚園・保育園"]),
+                "その他の数": len(organized_results["その他"]),
+                "総検索件数": total_schools,
+                "検索半径_km": radius_km,
+                "分析日時": pd.Timestamp.now().isoformat()
             }
             
-            # 分析データをGASに送信
+            # ★新規追加: 学校詳細リストを作成
+            school_details = {}
+            for category, schools in organized_results.items():
+                if schools:  # 空でない場合のみ追加
+                    school_details[category] = []
+                    for school in schools:
+                        school_details[category].append({
+                            "name": school['original_name'],
+                            "distance": round(school['distance'], 1)
+                        })
+            
+            # 分析データと★学校詳細リストをGASに送信
             with st.spinner("分析データをスプレッドシートに保存中..."):
-                send_analysis_data_to_gas(station_name, analysis_summary)
+                send_analysis_data_to_gas(station_name, analysis_summary, school_details)
+    
     
     # 結果表示
     if 'search_results' in st.session_state:
