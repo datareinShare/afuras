@@ -29,6 +29,7 @@ def send_analysis_data_to_gas(station_name: str, analysis_results: Dict = None, 
                     # スプレッドシート列構成に対応したキー名を使用
                     "塾の数": analysis_results.get("塾の数", 0),                    # D列
                     "eスポーツスクールの数": analysis_results.get("eスポーツスクールの数", 0), # E列
+                    "eスポーツ専門学校の数": analysis_results.get("eスポーツ専門学校の数", 0), # 新規追加
                     "小学校の数": analysis_results.get("小学校の数", 0),              # F列
                     "中学校の数": analysis_results.get("中学校の数", 0),              # G列
                     "高校の数": analysis_results.get("高校の数", 0),                # H列
@@ -189,8 +190,20 @@ class SchoolClassifier:
             "塾": ["塾", "予備校", "学習塾", "進学塾", "個別指導", "家庭教師", "補習塾", "受験塾", "学習教室"],
             "eスポーツ塾": ["eスポーツ", "ゲーミング", "プロゲーマー", "eSports", "esports", "イースポーツ", "ゲーム教室"],
             "専門学校": ["専門学校", "専門学院", "職業訓練校", "技術学校", "専修学校"],
+            "eスポーツ専門学校": ["eスポーツ専門学校", "ゲーミング専門学校", "esports専門学校"],  # 新規追加
             "幼稚園・保育園": ["幼稚園", "保育園", "保育所", "こども園", "認定こども園"]
         }
+        
+        # eスポーツ関連キーワード（専門学校判定用）
+        self.esports_keywords = [
+            "eスポーツ", "ゲーミング", "プロゲーマー", "eSports", "esports", 
+            "イースポーツ", "ゲーム", "エンターテインメント"
+        ]
+        
+        # 専門学校関連キーワード
+        self.vocational_keywords = [
+            "専門学校", "専門学院", "職業訓練校", "技術学校", "専修学校", "カレッジ"
+        ]
         
         # 教育関連のGoogle Places APIタイプ
         self.education_place_types = {
@@ -251,7 +264,14 @@ class SchoolClassifier:
         if not self.is_education_related(name, place_types):
             return None  # 教育関連でない場合はNoneを返す
         
-        # eスポーツ塾の判定（優先度高）
+        # eスポーツ専門学校の判定（最優先）
+        has_esports = any(kw in name for kw in self.esports_keywords)
+        has_vocational = any(kw in name for kw in self.vocational_keywords)
+        
+        if has_esports and has_vocational:
+            return "eスポーツ専門学校"
+        
+        # eスポーツ塾の判定（次に優先）
         if any(kw in name for kw in self.school_types["eスポーツ塾"]):
             return "eスポーツ塾"
         
@@ -330,7 +350,11 @@ class SchoolFinder:
             
             # eスポーツ関連
             "eスポーツスクール", "ゲーミングスクール", "プロゲーマー養成",
-            "esportsアカデミー", "ゲーム教室"
+            "esportsアカデミー", "ゲーム教室",
+            
+            # eスポーツ専門学校関連（新規追加）
+            "eスポーツ専門学校", "ゲーミング専門学校", "プロゲーマー専門学校",
+            "esports専門学校", "ゲーム専門学校", "エンターテインメント専門学校"
         ]
 
         progress_bar = st.progress(0)
@@ -403,6 +427,7 @@ class SchoolFinder:
             "高校": [],
             "大学": [],
             "専門学校": [],
+            "eスポーツ専門学校": [],  # 新規追加
             "幼稚園・保育園": [],
             "塾": [],
             "eスポーツ塾": [],
@@ -429,7 +454,7 @@ def main():
     )
     
     st.title("🏫 駅周辺学校・塾検索アプリ")
-    st.markdown("学校、塾、eスポーツ塾を一括検索できます")
+    st.markdown("学校、塾、eスポーツ塾、eスポーツ専門学校を一括検索できます")
     st.markdown("---")
     
     # APIキーの取得（優先順位: secrets.toml > 環境変数 > 手動入力）
@@ -527,6 +552,7 @@ def main():
             analysis_summary = {
                 "塾の数": len(organized_results["塾"]),
                 "eスポーツスクールの数": len(organized_results["eスポーツ塾"]),
+                "eスポーツ専門学校の数": len(organized_results["eスポーツ専門学校"]),  # 新規追加
                 "小学校の数": len(organized_results["小学校"]),
                 "中学校の数": len(organized_results["中学校"]),
                 "高校の数": len(organized_results["高校"]),
@@ -565,8 +591,8 @@ def main():
         if total_schools == 0:
             st.warning("該当する学校・塾がありませんでした。検索半径を広げてみてください。")
         else:
-            # 概要表示
-            cols = st.columns(9)
+            # 概要表示（10列に変更）
+            cols = st.columns(10)
             with cols[0]:
                 st.metric("小学校", len(results["小学校"]))
             with cols[1]:
@@ -578,20 +604,22 @@ def main():
             with cols[4]:
                 st.metric("専門学校", len(results["専門学校"]))
             with cols[5]:
-                st.metric("幼稚園・保育園", len(results["幼稚園・保育園"]))
+                st.metric("eスポーツ専門学校", len(results["eスポーツ専門学校"]))  # 新規追加
             with cols[6]:
-                st.metric("塾", len(results["塾"]))
+                st.metric("幼稚園・保育園", len(results["幼稚園・保育園"]))
             with cols[7]:
-                st.metric("eスポーツ塾", len(results["eスポーツ塾"]))
+                st.metric("塾", len(results["塾"]))
             with cols[8]:
+                st.metric("eスポーツ塾", len(results["eスポーツ塾"]))
+            with cols[9]:
                 st.metric("その他", len(results["その他"]))
             
             st.markdown("---")
             
-            # 詳細結果をタブで表示
+            # 詳細結果をタブで表示（タブ数を11に変更）
             tabs = st.tabs([
                 "🏫 全体", "🎒 小学校", "📚 中学校", "🎓 高校", "🏛️ 大学", 
-                "🔬 専門学校", "👶 幼稚園・保育園", "📖 塾", "🎮 eスポーツ塾", "📋 その他"
+                "🔬 専門学校", "🎮🏫 eスポーツ専門学校", "👶 幼稚園・保育園", "📖 塾", "🎮 eスポーツ塾", "📋 その他"
             ])
             
             # 全体タブ
@@ -609,8 +637,8 @@ def main():
                     df = pd.DataFrame(all_schools_list)
                     st.dataframe(df, use_container_width=True)
             
-            # 各カテゴリタブ
-            categories = ["小学校", "中学校", "高校", "大学", "専門学校", "幼稚園・保育園", "塾", "eスポーツ塾", "その他"]
+            # 各カテゴリタブ（eスポーツ専門学校を追加）
+            categories = ["小学校", "中学校", "高校", "大学", "専門学校", "eスポーツ専門学校", "幼稚園・保育園", "塾", "eスポーツ塾", "その他"]
             for i, category in enumerate(categories):
                 with tabs[i + 1]:
                     schools = results[category]
