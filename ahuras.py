@@ -275,9 +275,9 @@ class SchoolClassifier:
         
         # eスポーツ専門学校の判定（最優先）
         has_esports = any(kw in name for kw in self.esports_keywords)
-        has_vocational = any(kw in name for kw in self.vocational_keywords)
+        #has_vocational = any(kw in name for kw in self.vocational_keywords)
         
-        if has_esports and has_vocational:
+        if has_esports: #and has_vocational:
             return "eスポーツ専門学校"
         
         # eスポーツ塾の判定（次に優先）
